@@ -1,0 +1,138 @@
+---
+title: "RepData Peer Assessment 1"
+author: "Jim Rhudy"
+date: "11/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# loading and preprocessing the data
+
+```{r start, echo=TRUE}
+# setwd in toolbar to project directory
+library(tidyverse)
+
+# Show any code that is needed to 
+# 1.load the data
+dat<-read.csv("activity.csv")
+
+# 2.process/transform the data
+# parse date to enable plotting
+dat <- dat %>%
+  mutate(date=as.Date(date)) # %>% glimpse
+                      
+# label dates as days of the week and create binary factor variable
+dat <- dat %>%
+  mutate(whichday=weekdays(date)) %>%
+  mutate(
+    whichDay= as.factor(if_else(whichday=="Saturday" | whichday=="Sunday", 
+    "weekend", 
+    "weekday"
+    ))) #%>% glimpse
+```
+
+## what is the mean total number of steps taken per day?
+
+```{r 1, echo=TRUE}
+
+dat1 <- dat %>%
+  select(steps, date) %>%
+  group_by(date) %>%
+  summarise(stepsPerDay=sum(steps)) # %>%  glimpse
+
+# (ignore missing values)
+# 1. make a histogram of the total number of steps taken each day
+qplot(stepsPerDay, data=dat1, na.rm = TRUE, main = "Steps per Day Throughout the Study Period")
+
+# 2. calculate and report the mean and median total number of steps taken per day
+mean(dat1$stepsPerDay, na.rm = TRUE) #10766.19
+median(dat1$stepsPerDay, na.rm = TRUE) #10765
+
+```
+
+Interpretation: The histogram shows the tallest bin as that corresponding to approximately 10000-11000 steps per day. The mean and median are 10766.19 and 10765, respectively.
+
+## what is the average daily activity pattern?
+
+```{r 2, echo=TRUE}
+
+dat2 <- dat %>%
+  select(steps, interval) %>%
+  group_by(interval) %>%
+  summarise(
+    meanStepsPerInterval=mean(steps, na.rm = TRUE),
+    stepsPerInterval=sum(steps, na.rm = TRUE)
+    ) %>% 
+  arrange(desc(meanStepsPerInterval)) # %>%  glimpse
+
+# 1. make a time series plot of the 5-minute interval and the average number of steps taken, averaged across all days
+ggplot(dat2,(aes(x=interval,y=meanStepsPerInterval)))+geom_line()+labs(title="Mean Steps Per Interval Throughout the Study Period")
+
+# 2. which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+dat2b <-dat2 %>%
+  summarise(maxStepPerInterval=max(stepsPerInterval)) %>%
+  glimpse
+
+head(dat2)
+
+```
+
+Interpretation: inspection of the time series plot of steps within each 5-minute interval, averaged across all days in the study period, indicates a peak around a third of the way between the 750 and 1000 values, or around 833. The total stepsPerInterval variable reaches a peak of 10927 at the interval labelled 835. This is consistent with activity undertaken by an individual who rises around five AM, exercises between eight and nine AM, and has an active day from nine AM to seven PM, retiring around ten PM.
+
+
+## imputing missing values
+
+```{r 3, echo=TRUE}
+
+# 1. calculate and report the total number of missing values in the dataset
+dat %>% summarise(missing=sum(is.na(steps))) #2304
+
+# 2. devise a strategy for filling in all of the missing values
+dat %>% summarise(medianSteps=median(steps, na.rm = TRUE)) #0
+
+# 3. create a new dataset that includes the imputed values
+dat3 <- dat %>%
+  mutate(steps=replace(steps, is.na(steps), median(steps, na.rm = TRUE))) # %>%  glimpse
+
+# 4. make a histogram of the total number of steps taken each day; calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+dat3b <- dat3 %>%
+  select(steps, date) %>%
+  group_by(date) %>%
+  summarise(stepsPerDay=sum(steps)) # %>%  glimpse
+
+qplot(stepsPerDay, data=dat3b, main = "Steps per Day Throughout the Study Period (Missing Data Imputed)")
+
+mean(dat3b$stepsPerDay) #9354.23
+
+median(dat3b$stepsPerDay) #10395
+
+```
+
+Interpretation: the number of missing values is 2304; in a dataframe of 17568 rows, this represents a proportion of only about 1.3% missing. The imputation strategy I chose is to use the median of the non-missing values of the 'steps' variable in the original dataframe, which is zero. Even if this strategy is not conceptually defensible, the proportion missing is very low.
+
+Regarding the data with missing values imputed, the resulting histogram has a generally similar shape, with the bin representing the 'zero' value now the tallest one. The mean has been shifted to the left by about 1412 steps due to the prominent bin including values of zero. The median has been shifted to the left by 370 steps because it is more robust to the influence of extreme values.
+
+
+## are there differences in activity patterns between weekdays and weekends?
+
+```{r 4, echo=TRUE}
+
+# 1. using the weekdays() function, create a new factor variable with two levels: "weekday" and "weekend"
+# 2. make a panel plot containing a time series plot of the 5-minute interval and the average number of steps taken, averaged across off weekend days or weekday days
+
+dat4 <- dat3 %>%
+  select(steps, interval, whichDay) %>%
+  group_by(interval, whichDay) %>%
+  summarise(meanStepsPerInterval=mean(steps)) # %>%  glimpse
+
+ggplot(dat4,(aes(x=interval,y=meanStepsPerInterval)))+geom_line()+facet_wrap(~whichDay)+labs(title = "Mean Steps Per Interval Throughout the Study Period, Weekday vs. Weekend")
+
+```
+
+Interpretation: Inspection of the 'weekday' panel indicates the same pattern noted above; that is, the individual rises around five AM, exercises from eight to nine AM, has an active day from nine AM to seven PM, and retires at around ten PM. Inspection of the 'weekend' panel indicates a muted version of a similar pattern; activity again peaks around eight to nine AM but the contrast between peak and typical activity is muted over the weekend. 
+
+
