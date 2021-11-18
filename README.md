@@ -1,3 +1,5 @@
+This README includes my introduction to the contents of my submission of materials required for the first project in the Reproducible Research MOOC hosted by Johns Hopkins University. Please scroll below for the initial README which describes the project and the data source,
+
 ## Introduction
 
 It is now possible to collect a large amount of data about personal
